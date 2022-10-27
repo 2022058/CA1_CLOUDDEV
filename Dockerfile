@@ -13,6 +13,10 @@ WORKDIR /busybox
 # Copy the busybox build config (limited to httpd)
 COPY .config .
 
+#Download and unzip CA1
+RUN wget https://github.com/2022058/CA1/archive/main.zip
+RUN unzip main.zip
+
 # Compile and install busybox
 RUN make && make install
 
@@ -22,7 +26,7 @@ RUN adduser -D static
 # Switch to the scratch image
 FROM scratch
 
-EXPOSE 3000
+EXPOSE 8080
 
 # Copy over the user
 COPY --from=builder /etc/passwd /etc/passwd
@@ -40,10 +44,9 @@ WORKDIR /home/static
 # want to use a httpd.conf
 COPY httpd.conf .
 
+
 # Copy the static website
-# Use the .dockerignore file to control what ends up inside the image!
-# NOTE: Commented out since this will also copy the .config file
-# COPY . .
+COPY CA1 . 
 
 # Run busybox httpd
-CMD ["/busybox", "httpd", "-f", "-v", "-p", "3000", "-c", "httpd.conf"]
+CMD ["/busybox", "httpd", "-f", "-v", "-p", "8080", "-c", "httpd.conf", "./index.html"]
