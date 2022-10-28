@@ -1,52 +1,48 @@
-FROM alpine:3.13.2 AS builder
+FROM alpine:latest AS builder
 
 # Install all dependencies required for compiling busybox
 RUN apk add gcc musl-dev make perl
 
-# Download busybox sources
+# Downloading the busybox sources
 RUN wget https://busybox.net/downloads/busybox-1.35.0.tar.bz2 \
   && tar xf busybox-1.35.0.tar.bz2 \
   && mv /busybox-1.35.0 /busybox
 
+# Creating a new user to secure running commands
+RUN adduser -D static 
+
+# Gettin the content of Web CA1 from GitHub
+RUN wget https://github.com/2022058/CA1/archive/main.tar.gz \
+  && tar xf main.tar.gz \
+  && rm main.tar.gz \
+  && mv /CA1-main /home/static
+
+# Changing working directory
 WORKDIR /busybox
 
-# Copy the busybox build config (limited to httpd)
+# Installing a custom version of BusyBox
 COPY .config .
-
-#Download and unzip CA1
-RUN wget https://github.com/2022058/CA1/archive/main.zip
-RUN unzip main.zip
-
-# Compile and install busybox
 RUN make && make install
 
-# Create a non-root user to own the files and run our server
-RUN adduser -D static
-
-# Switch to the scratch image
+# Switching to the scratch image
 FROM scratch
 
+# Exposing container port
 EXPOSE 8080
 
-# Copy over the user
+# Copying user and custom BusyBox version to the scratch image
 COPY --from=builder /etc/passwd /etc/passwd
-
-# Copy the busybox static binary
 COPY --from=builder /busybox/_install/bin/busybox /
+# Copying the content of Web CA1 to the scratch image
+COPY --from=builder /home/static /home/static
 
-# Use our non-root user
+# Switching to our non-root user and their working directory
 USER static
-WORKDIR /home/static
+## Changing working directory to /home/static/CA1-main
+WORKDIR /home/static/CA1-main
 
-# Uploads a blank default httpd.conf
-# This is only needed in order to set the `-c` argument in this base file
-# and save the developer the need to override the CMD line in case they ever
-# want to use a httpd.conf
+# httpd.conf 
 COPY httpd.conf .
 
-
-# Copy the static website
-COPY CA1 . 
-
-# Run busybox httpd
-CMD ["/busybox", "httpd", "-f", "-v", "-p", "8080", "-c", "httpd.conf", "./index.html"]
+# Issuing commands to run when container is created
+CMD ["/busybox", "httpd", "-f", "-v", "-p", "8080", "-c", "httpd.conf"]
