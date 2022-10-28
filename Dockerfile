@@ -1,17 +1,17 @@
 FROM alpine:latest AS builder
 
-# Install all dependencies required for compiling busybox
+# Install each dependency needed to build busybox
 RUN apk add gcc musl-dev make perl
 
-# Downloading the busybox sources
+# Getting the busybox sources downloaded
 RUN wget https://busybox.net/downloads/busybox-1.35.0.tar.bz2 \
   && tar xf busybox-1.35.0.tar.bz2 \
   && mv /busybox-1.35.0 /busybox
 
-# Creating a new user to secure running commands
+# Establishing a new user to protect active commands
 RUN adduser -D static 
 
-# Gettin the content of Web CA1 from GitHub
+# Obtaining Web CA1's content from GitHub
 RUN wget https://github.com/2022058/CA1/archive/main.tar.gz \
   && tar xf main.tar.gz \
   && rm main.tar.gz \
@@ -20,29 +20,29 @@ RUN wget https://github.com/2022058/CA1/archive/main.tar.gz \
 # Changing working directory
 WORKDIR /busybox
 
-# Installing a custom version of BusyBox
+# Installing a customised BusyBox version
 COPY .config .
 RUN make && make install
 
-# Switching to the scratch image
+# I'll now switch to the scratch image
 FROM scratch
 
 # Exposing container port
 EXPOSE 8080
 
-# Copying user and custom BusyBox version to the scratch image
+# User and customised BusyBox versions are copied to the scratch image
 COPY --from=builder /etc/passwd /etc/passwd
 COPY --from=builder /busybox/_install/bin/busybox /
-# Copying the content of Web CA1 to the scratch image
+# Copying Web CA1's content to the scratch image
 COPY --from=builder /home/static /home/static
 
-# Switching to our non-root user and their working directory
+# The working directory of our non-root user is now selected.
 USER static
-## Changing working directory to /home/static/CA1-main
+## Replacing the working directory to /home/static/CA1-main
 WORKDIR /home/static/CA1-main
 
 # httpd.conf 
 COPY httpd.conf .
 
-# Issuing commands to run when container is created
+# Launching commands after container creation
 CMD ["/busybox", "httpd", "-f", "-v", "-p", "8080", "-c", "httpd.conf"]
